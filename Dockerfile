@@ -12,4 +12,4 @@ run R -e "install.packages('XML')"
 run R -e "install.packages('ggmap')"
 
 run apt-get install npm -y
-run npm install git+https://git@github.com/arthurlacoste/google-translate-api
+run npm install git+https://git@github.com/arthurlacoste/google-translate-api.git
