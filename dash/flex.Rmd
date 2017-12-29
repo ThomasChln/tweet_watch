@@ -1,0 +1,137 @@
+---
+title: "Tweet watch"
+output: 
+  flexdashboard::flex_dashboard:
+    theme: spacelab 
+runtime: shiny
+---
+```{r setup, include=FALSE}
+library(flexdashboard)
+library(magrittr)
+library(leaflet)
+source('groups.R')
+
+#fetch
+
+n_topics = 13
+min_ratio = .5
+
+df = get_df()
+df_tab = get_table(df)
+
+react_df_clust = shiny::reactive({
+    df %>% get_df_clust(input$n_topics, input$min_ratio)
+  })
+
+render_dygraph = function(df) {
+  if (is.null(input$tbl_rows_all)) return()
+  df[input$tbl_rows_all, ] %$% created_h %>% table %>%
+    matrix(dimnames = list(names(.), NULL)) %>% xts::as.xts() %>%
+    dygraphs::dygraph()
+}
+
+render_groups = function(df, ..., sums = FALSE) {
+  df_clust = react_df_clust()
+  (if (sums) get_df_groups_sum else get_df_groups)(df_clust, 5) %>%
+    DT::datatable(...)
+}
+
+render_table = function(df_tab, small = TRUE, plength = 5, length_menu = TRUE) {
+  #if (is.null(input$dygraph_date_window)) return()
+  #select_bounds = input$dygraph_date_window %>% lubridate::ymd_hms()
+  #df_tab %<>% subset(select_bounds[1] <= created_h & created_h <= select_bounds[2])
+
+  df_clust = react_df_clust()
+  df_tab %<>% merge(df_clust[c('id_str', 'clust')], 'id_str', all.x = TRUE,
+    sort = FALSE) %>% `[`(order(.$created_at) %>% rev, )
+
+  cols = c('withheld_in_cn', 'clust', 'lang', 'created_at', 'city', 'en_trans')
+  labels = c('Censor', 'Group', 'Lang.', 'Date', 'City', 'English translation')
+
+  if (small) {
+    df_tab = df_tab[cols]
+  } else {
+    df_tab = df_tab[c(cols, 'text', 'user', 'withheld_at', 'checked', 'link')]
+    labels %<>% c('Text', 'User', 'Censored at', 'Checked at', 'Link')
+  }
+
+  col_defs = c('lang', 'withheld_in_cn', 'clust') %>% {
+      list(list(width = '20px', targets = match(., names(df_tab)) - 1))
+    }
+  opts <- list(pageLength = plength, columnDefs = col_defs)
+
+  if (!length_menu) opts <- append(opts, list(dom = 'ftir'))
+  DT::datatable(df_tab, opts, filter = 'top', rownames = FALSE,
+    colnames = labels)
+}
+
+render_map = function(df) {
+  if (is.null(input$tbl_rows_all)) return()
+  ids <- input$tbl_rows_all
+  leaflet(df[ids, ]) %>%
+    addTiles(urlTemplate = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png') %>%
+    addMarkers(popup = ~en_trans, clusterOptions = markerClusterOptions())
+}
+
+output$dygraph <- dygraphs::renderDygraph(render_dygraph(df))
+output$map <- leaflet::renderLeaflet(render_map(df))
+
+output$tbl <- DT::renderDataTable(render_table(df_tab, plength = 3))
+output$tbl1 <- DT::renderDataTable(render_table(df_tab, FALSE, 25))
+
+output$tbl2 <- DT::renderDataTable(render_groups(df, list(pageLength = 100)))
+output$tbl_sums <- DT::renderDataTable(render_groups(df, list(pageLength = 100), sums = TRUE))
+```
+
+# Options {.sidebar}
+
+```{r}
+shiny::sliderInput('n_topics', 'Number of topics', 5, 20, n_topics)
+shiny::sliderInput('min_ratio', 'Minimum topic size ratio', 0, 1, min_ratio)
+```
+
+# Map
+
+## Col
+
+### {data-height=100}
+
+```{r}
+dygraphs::dygraphOutput('dygraph')
+```
+
+### 
+
+```{r}
+leaflet::leafletOutput('map', height = "100%")
+```
+
+## Col
+
+###
+
+```{r}
+DT::dataTableOutput('tbl')
+```
+
+###
+
+```{r}
+DT::dataTableOutput('tbl_sums')
+```
+
+# Table
+
+## Tab 
+
+```{r}
+DT::dataTableOutput('tbl1')
+```
+
+# Groups
+
+## Tab 
+
+```{r}
+DT::dataTableOutput('tbl2')
+```

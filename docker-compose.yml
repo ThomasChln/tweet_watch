@@ -1,0 +1,10 @@
+version: '2'
+
+services:
+  twit:
+    restart: always
+    image: thomaschln/tweet_watch
+    working_dir: /home
+    volumes:
+      - .:/home
+    command: R -e "source('tw.R');monit()"

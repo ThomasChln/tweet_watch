@@ -1,0 +1,9 @@
+version: '2'
+
+services:
+  tor:
+    build: .
+    working_dir: /home
+    volumes:
+      - ../:/home
+    command: sh torsocks/tor.sh

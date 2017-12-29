@@ -1,0 +1,10 @@
+version: '2'
+
+services:
+  twitshine:
+    build: .
+    ports:
+      - "3838:3838"
+    volumes:
+      - .:/srv/shiny-server
+
